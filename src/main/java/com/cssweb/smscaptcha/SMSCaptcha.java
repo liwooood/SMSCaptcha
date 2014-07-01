@@ -97,6 +97,8 @@ public class SMSCaptcha {
 
             System.out.println("result = " + result);
 
+            // 调用短信发送API
+
             ret = true;
         }
         catch(JedisConnectionException exp)
@@ -116,13 +118,13 @@ public class SMSCaptcha {
         }
 
 
-        // 调用短信发送
+
 
         return ret;
     }
 
     /**
-     * 
+     *
      * @param mobile
      * @param captcha
      * @return
