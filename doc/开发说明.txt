@@ -1,0 +1,1 @@
+可以考虑采用couchbase memcahed模式

@@ -33,7 +33,7 @@ public class SMSCaptcha {
 
     public boolean connect(String ip, int port)
     {
-        String redisServer = ip + ":" + port;
+
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
 
@@ -43,7 +43,9 @@ public class SMSCaptcha {
 
 
         try {
-            jedisPool = new JedisPool(new JedisPoolConfig(), redisServer);
+            // 从zookeeper读取配置信息
+
+            jedisPool = new JedisPool(new JedisPoolConfig(), ip, port);
 
             if (jedisPool == null)
             {
@@ -78,7 +80,8 @@ public class SMSCaptcha {
     {
         boolean ret = false;
 
-        // 从zookeeper读取redis配置信息
+       if (jedisPool == null)
+           return ret;
 
         // 生产6位随机数
         String captcha = "";
@@ -87,11 +90,14 @@ public class SMSCaptcha {
 
         // 存储
 
-        Jedis jedis = jedisPool.getResource();
-        if (jedis == null)
-            return false;
+        Jedis jedis = null;
+
 
         try {
+            jedis = jedisPool.getResource();
+            if (jedis == null)
+                return false;
+
             Long result = jedis.hset(mobile, captcha, "");
             jedis.expire(mobile, expireSeconds);
 
@@ -133,12 +139,17 @@ public class SMSCaptcha {
     {
         boolean ret = false;
 
+        if (jedisPool == null)
+            return ret;
+
         // 存储
-        Jedis jedis = jedisPool.getResource();
-        if (jedis == null)
-            return false;
+        Jedis jedis = null;
 
         try {
+            jedis = jedisPool.getResource();
+            if (jedis == null)
+                return false;
+
             if (jedis.hexists(mobile, captcha)) {
                 // 存在
                 jedis.hdel(mobile, captcha);
@@ -184,9 +195,73 @@ public class SMSCaptcha {
         return result;
     }
 
+    private void getCaptcha(String mobile)
+    {
+        if (jedisPool == null)
+            return;
+
+        // 存储
+        Jedis jedis = null;
+
+        try {
+            jedis = jedisPool.getResource();
+            if (jedis == null)
+                return;
+/*
+            //if (jedis.hget(mobile, )) {
+
+            }
+            else
+            {
+
+            }
+            */
+        }
+        catch(JedisConnectionException exp)
+        {
+
+            if (jedis != null) {
+                jedisPool.returnBrokenResource(jedis);
+                jedis = null;
+            }
+        }
+        finally {
+            if (jedis != null) {
+                jedisPool.returnResource(jedis);
+                jedis = null;
+            }
+        }
+    }
+
     public static void main(String[] args)
     {
-        SMSCaptcha test = new SMSCaptcha();
-        System.out.println(test.getRandom());
+        int expireSeconds = 60;
+        boolean ret = false;
+        String mobile = "13918713802";
+        String captcha = "";
+
+        SMSCaptcha smsCaptcha = SMSCaptcha.getInstance();
+
+        ret = smsCaptcha.connect("192.168.1.201", 6379);
+        if (ret)
+        {
+            System.out.println("连接redis成功");
+        }
+        else
+        {
+            System.out.println("连接redis失败");
+            return;
+
+        }
+
+        ret = smsCaptcha.sendCaptcha(mobile, expireSeconds);
+        if (ret)
+        {
+            System.out.println("发送短信验证码成功");
+        }
+
+        smsCaptcha.verifyCaptcha(mobile, captcha);
+
+        smsCaptcha.close();
     }
 }
